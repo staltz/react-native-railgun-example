@@ -5,6 +5,7 @@
  * @format
  */
 
+import '@railgun-community/wallet/react-native-shims';
 import React from 'react';
 import type {PropsWithChildren} from 'react';
 import {
