@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@railgun-community/wallet": "5.4.0",
+    "memdown": "6.1.1",
     "react": "18.2.0",
     "react-native": "0.72.3",
+    "react-native-fs": "2.20.0",
     "react-native-get-random-values": "1.9.0"
   },
   "devDependencies": {

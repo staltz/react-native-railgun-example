@@ -6,7 +6,7 @@
  */
 
 import '@railgun-community/wallet/react-native-shims';
-import React from 'react';
+import React, {useEffect} from 'react';
 import type {PropsWithChildren} from 'react';
 import {
   SafeAreaView,
@@ -18,13 +18,17 @@ import {
   View,
 } from 'react-native';
 
+import {Colors} from 'react-native/Libraries/NewAppScreen';
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+  startRailgunEngine,
+  loadProvider,
+  ArtifactStore,
+  setLoggers,
+  setOnBalanceUpdateCallback,
+} from '@railgun-community/wallet';
+// @ts-ignore
+import memdown from 'memdown';
+import fs from 'react-native-fs';
 
 type SectionProps = PropsWithChildren<{
   title: string;
@@ -56,12 +60,92 @@ function Section({children, title}: SectionProps): JSX.Element {
   );
 }
 
+const providerConfigEthereum = {
+  networkName: 'Ethereum',
+  chainId: 1,
+  providers: [
+    {
+      provider: 'https://cloudflare-eth.com/',
+      priority: 1,
+      weight: 1,
+    },
+    {
+      provider: 'https://rpc.ankr.com/eth',
+      priority: 2,
+      weight: 1,
+    },
+    {
+      provider: 'https://railwayapi.xyz/rpc/pokt/eth-mainnet',
+      priority: 1,
+      weight: 2,
+      stallTimeout: 2500,
+    },
+    {
+      provider: 'https://railwayapi.xyz/rpc/alchemy/eth-mainnet',
+      priority: 2,
+      weight: 2,
+    },
+  ],
+};
+
 function App(): JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
+
+  const [erc20Amounts, setErc20Amounts] = React.useState<any[] | null>(null);
+
+  useEffect(() => {
+    (async function () {
+      const getFile = async (path: string) =>
+        fs.readFile(`${fs.DocumentDirectoryPath}/${path}`);
+
+      const storeFile = async (
+        dir: string,
+        path: string,
+        item: string | Uint8Array,
+      ) => {
+        await fs.mkdir(`${fs.DocumentDirectoryPath}/${dir}`);
+        await fs.writeFile(
+          `${fs.DocumentDirectoryPath}/${path}`,
+          item as string,
+        );
+      };
+
+      const fileExists = async (path: string): Promise<boolean> =>
+        await fs.exists(`${fs.DocumentDirectoryPath}/${path}`);
+
+      const artifactStore = new ArtifactStore(getFile, storeFile, fileExists);
+      const shouldDebug = true;
+      const useNativeArtifacts = true;
+      const skipMerkletreeScans = false;
+
+      setLoggers(console.log, console.error);
+      startRailgunEngine(
+        'RNRailgunExample',
+        memdown(),
+        shouldDebug,
+        artifactStore,
+        useNativeArtifacts,
+        skipMerkletreeScans,
+      );
+
+      setOnBalanceUpdateCallback(balances => {
+        setErc20Amounts(balances.erc20Amounts);
+      });
+
+      const feesSerialized = await loadProvider(
+        providerConfigEthereum,
+        providerConfigEthereum.networkName as any,
+      );
+      console.log(
+        'Loaded providers, with fees:',
+        JSON.stringify(feesSerialized),
+      );
+    })();
+  }, []);
 
   return (
     <SafeAreaView style={backgroundStyle}>
@@ -72,25 +156,19 @@ function App(): JSX.Element {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
-        <Header />
         <View
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
           }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
+          <Section title="RNRailgunExample">
+            {erc20Amounts ? 'Balances:' : 'Loading... (may take 15min)'}
+            {erc20Amounts?.map(({tokenAddress, amount}, index) => (
+              <Text key={index}>
+                {'\n'}
+                {tokenAddress} has {amount.toString()}
+              </Text>
+            ))}
           </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
         </View>
       </ScrollView>
     </SafeAreaView>
